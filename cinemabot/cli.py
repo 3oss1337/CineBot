@@ -251,6 +251,27 @@ def test_email(verbose: bool = False):
         raise typer.Exit(1)
 
 
+@app.command(name="test-telegram")
+def test_telegram(verbose: bool = False):
+    """Send a test Telegram message to verify bot configuration."""
+    setup_logging(verbose)
+    notifier = Notifier()
+    settings = get_settings()
+    if not settings.telegram_configured():
+        console.print("[red]Telegram not configured. Set CINEBOT_TELEGRAM_BOT_TOKEN and CINEBOT_TELEGRAM_CHAT_ID in .env.[/red]")
+        console.print("1. Create a bot via @BotFather on Telegram -> get token.")
+        console.print("2. Send any message to your bot, then open:")
+        console.print("   https://api.telegram.org/bot<TOKEN>/getUpdates  to find your chat_id.")
+        raise typer.Exit(1)
+    console.print(f"Sending test message to chat {settings.telegram_chat_id} ...")
+    ok = notifier.send_telegram("🤖 <b>CineBot test</b>\n\nTelegram notifications are working.")
+    if ok:
+        console.print("[green]Test message sent successfully.[/green]")
+    else:
+        console.print("[red]Failed to send. Check token and chat_id.[/red]")
+        raise typer.Exit(1)
+
+
 @app.command()
 def config(verbose: bool = False):
     """Show configuration status (secrets redacted)."""
@@ -261,6 +282,7 @@ def config(verbose: bool = False):
     console.print(f"SMTP user: {s.smtp_user or '(not set)'}")
     console.print(f"Email to: {s.email_to or '(not set)'}")
     console.print(f"Email configured: {s.email_configured()}")
+    console.print(f"Telegram configured: {s.telegram_configured()}")
     console.print(f"Poll interval: {s.poll_interval}s")
     console.print(f"Headless: {s.headless}")
     console.print(f"Pool size: {s.pool_size}")

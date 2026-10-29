@@ -25,6 +25,14 @@ class Settings(BaseModel):
     email_to: Optional[str] = None
     smtp_use_tls: bool = True
 
+    # SendGrid (HTTP API) - preferred for bots, no SMTP/app-password hassle
+    sendgrid_api_key: Optional[str] = None
+    sendgrid_from: Optional[str] = None
+
+    # Telegram bot notifications
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
+
     poll_interval: int = Field(default=60, ge=5, le=3600)
     watch_timeout: int = Field(default=0, ge=0)  # 0 = forever
 
@@ -64,6 +72,10 @@ class Settings(BaseModel):
             smtp_password=os.getenv("CINEBOT_SMTP_PASSWORD") or None,
             email_to=os.getenv("CINEBOT_EMAIL_TO") or None,
             smtp_use_tls=_bool("CINEBOT_SMTP_USE_TLS", True),
+            sendgrid_api_key=os.getenv("CINEBOT_SENDGRID_API_KEY") or None,
+            sendgrid_from=os.getenv("CINEBOT_SENDGRID_FROM") or None,
+            telegram_bot_token=os.getenv("CINEBOT_TELEGRAM_BOT_TOKEN") or None,
+            telegram_chat_id=os.getenv("CINEBOT_TELEGRAM_CHAT_ID") or None,
             poll_interval=_int("CINEBOT_POLL_INTERVAL", 60),
             watch_timeout=_int("CINEBOT_WATCH_TIMEOUT", 0),
             headless=_bool("CINEBOT_HEADLESS", True),
@@ -72,7 +84,15 @@ class Settings(BaseModel):
         )
 
     def email_configured(self) -> bool:
+        if self.email_to and self.sendgrid_api_key and self.sendgrid_from:
+            return True
         return bool(self.smtp_user and self.smtp_password and self.email_to)
+
+    def use_sendgrid(self) -> bool:
+        return bool(self.sendgrid_api_key and self.sendgrid_from and self.email_to)
+
+    def telegram_configured(self) -> bool:
+        return bool(self.telegram_bot_token and self.telegram_chat_id)
 
 
 _settings: Optional[Settings] = None

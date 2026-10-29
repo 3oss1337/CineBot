@@ -28,6 +28,9 @@ class Notifier:
         msg.set_content(body)
         if html:
             msg.add_alternative(html, subtype="html")
+        # Prefer SendGrid HTTP API if configured
+        if s.use_sendgrid():
+            return self._send_sendgrid(s, subject, body, html)
         try:
             if s.smtp_use_tls and s.smtp_port == 465:
                 with smtplib.SMTP_SSL(s.smtp_host, s.smtp_port, timeout=30) as server:
@@ -45,6 +48,66 @@ class Notifier:
             return True
         except Exception as e:
             log.error("Failed to send email: %s", e)
+            return False
+
+    def send_telegram(self, text: str) -> bool:
+        s = self.settings
+        if not s.telegram_configured():
+            log.warning("Telegram not configured; skipping.")
+            return False
+        import httpx
+
+        url = f"https://api.telegram.org/bot{s.telegram_bot_token}/sendMessage"
+        # Telegram message limit 4096 chars
+        if len(text) > 4000:
+            text = text[:3990] + "\n…(truncated)"
+        try:
+            with httpx.Client(timeout=30) as client:
+                r = client.post(url, json={
+                    "chat_id": s.telegram_chat_id,
+                    "text": text,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                })
+            data = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+            if r.status_code == 200 and data.get("ok"):
+                log.info("Telegram message sent.")
+                return True
+            log.error("Telegram error %s: %s", r.status_code, r.text[:500])
+            return False
+        except Exception as e:
+            log.error("Failed to send Telegram message: %s", e)
+            return False
+
+    def _send_sendgrid(self, s, subject: str, body: str, html: Optional[str]) -> bool:
+        import httpx
+
+        content = [{"type": "text/plain", "value": body}]
+        if html:
+            content.append({"type": "text/html", "value": html})
+        payload = {
+            "personalizations": [{"to": [{"email": s.email_to}]}],
+            "from": {"email": s.sendgrid_from, "name": "CineBot"},
+            "subject": subject,
+            "content": content,
+        }
+        try:
+            with httpx.Client(timeout=30) as client:
+                r = client.post(
+                    "https://api.sendgrid.com/v3/mail/send",
+                    headers={
+                        "Authorization": f"Bearer {s.sendgrid_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+            if r.status_code in (200, 202):
+                log.info("Email sent via SendGrid: %s", subject)
+                return True
+            log.error("SendGrid error %s: %s", r.status_code, r.text[:500])
+            return False
+        except Exception as e:
+            log.error("Failed to send email via SendGrid: %s", e)
             return False
 
     @staticmethod
@@ -92,7 +155,13 @@ class Notifier:
                 f"<p><a href='{movie.url}'>Open on VOX</a></p>"
                 f"<table border='1' cellpadding='4'><tr><th>Cinema</th><th>Format</th><th>Time</th><th>Status</th></tr>{rows}</table>"
             )
-        return self.send_email(subject, body, html)
+        ok = True
+        if self.settings.email_configured():
+            ok = self.send_email(subject, body, html) and ok
+        if self.settings.telegram_configured():
+            tg_text = f"🎬 Booking OPEN: {movie.title}\n\n{self.format_showtimes(ms) if ms else ''}\n\nBook: {movie.url}"
+            ok = self.send_telegram(tg_text) and ok
+        return ok
 
     def notify_available_tickets(self, movie, new_slots: List[Showtime]) -> bool:
         subject = f"[CineBot] Available tickets: {movie.title}"
@@ -106,4 +175,14 @@ class Notifier:
             f"{s.cinema} | {s.format_name} | {s.time}" + (f" - <a href='{s.booking_url}'>Book</a>" if s.booking_url else "")
             for s in new_slots
         )
-        return self.send_email(subject, body, f"<h2>{movie.title}</h2><p>{html}</p>")
+        ok = True
+        if self.settings.email_configured():
+            ok = self.send_email(subject, body, f"<h2>{movie.title}</h2><p>{html}</p>") and ok
+        if self.settings.telegram_configured():
+            tg_lines = [f"🎟️ New tickets: {movie.title}", ""]
+            for s in new_slots:
+                tg_lines.append(f"- {s.cinema} | {s.format_name} | {s.time}")
+                if s.booking_url:
+                    tg_lines.append(f"  {s.booking_url}")
+            ok = self.send_telegram("\n".join(tg_lines)) and ok
+        return ok
