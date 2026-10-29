@@ -15,6 +15,7 @@ from .notifier import Notifier
 from .exporter import export_csv, export_excel
 from .scraper import VoxScraper
 from .utils import setup_logging, safe_movie_query
+from .gui import main as gui_main
 from .telegram_bot import TelegramBotRunner
 from .watcher import watch_booking, watch_tickets
 
@@ -290,6 +291,13 @@ def telegram(verbose: bool = False):
         runner.stop()
     finally:
         close_all_drivers()
+
+
+@app.command()
+def gui(verbose: bool = False):
+    """Launch the desktop GUI."""
+    setup_logging(verbose)
+    gui_main()
 
 
 @app.command()
