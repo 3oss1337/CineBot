@@ -15,6 +15,7 @@ from .notifier import Notifier
 from .exporter import export_csv, export_excel
 from .scraper import VoxScraper
 from .utils import setup_logging, safe_movie_query
+from .telegram_bot import TelegramBotRunner
 from .watcher import watch_booking, watch_tickets
 
 app = typer.Typer(help="CineBot - VOX Cinemas Egypt ticket watcher", no_args_is_help=True)
@@ -270,6 +271,25 @@ def test_telegram(verbose: bool = False):
     else:
         console.print("[red]Failed to send. Check token and chat_id.[/red]")
         raise typer.Exit(1)
+
+
+@app.command()
+def telegram(verbose: bool = False):
+    """Run an interactive Telegram bot you can chat with."""
+    setup_logging(verbose)
+    settings = get_settings()
+    if not settings.telegram_configured():
+        console.print("[red]Telegram not configured. Set CINEBOT_TELEGRAM_BOT_TOKEN and CINEBOT_TELEGRAM_CHAT_ID in .env.[/red]")
+        raise typer.Exit(1)
+    console.print("[green]Starting Telegram bot. Send /help in Telegram. Ctrl+C to stop.[/green]")
+    runner = TelegramBotRunner()
+    try:
+        runner.run()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Stopped.[/yellow]")
+        runner.stop()
+    finally:
+        close_all_drivers()
 
 
 @app.command()
