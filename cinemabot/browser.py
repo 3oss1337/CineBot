@@ -9,7 +9,6 @@ from typing import Optional
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from .config import get_settings
@@ -35,7 +34,6 @@ def _build_options(settings) -> Options:
         "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
-    # Speed: eager page load, block images
     opts.page_load_strategy = "eager"
     prefs = {
         "profile.managed_default_content_settings.images": 2,
@@ -54,7 +52,6 @@ def _create_driver(settings) -> webdriver.Chrome:
     driver = webdriver.Chrome(options=opts)
     driver.set_page_load_timeout(30)
     driver.set_script_timeout(20)
-    # Stealth: remove webdriver flag
     try:
         driver.execute_cdp_cmd(
             "Page.addScriptToEvaluateOnNewDocument",
@@ -85,8 +82,6 @@ def close_driver() -> None:
 
 
 class BrowserFetcher:
-    """Fetches pages as HTML using a thread-local Chrome instance."""
-
     def __init__(self):
         self.settings = get_settings()
 
@@ -106,20 +101,16 @@ class BrowserFetcher:
         try:
             driver.get(url)
         except TimeoutException:
-            # page may be partially loaded; try to grab source
             log.warning("Timeout loading %s; using partial source", url)
-        # Wait a bit for dynamic content (Akamai challenge) to resolve
-        # Poll readyState
-        for _ in range(20):
+        for _ in range(10):
             try:
                 state = driver.execute_script("return document.readyState")
             except Exception:
                 state = "complete"
             if state in ("interactive", "complete"):
                 break
-            time.sleep(0.25)
-        # Extra small wait for JS-rendered showtimes
-        time.sleep(0.8)
+            time.sleep(0.1)
+        time.sleep(0.4)
         html = driver.page_source
         elapsed = time.time() - t0
         log.debug("Fetched %s in %.2fs (%d bytes)", url, elapsed, len(html))
