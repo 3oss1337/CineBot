@@ -64,8 +64,8 @@ class CineBotGUI(ctk.CTk):
 
         def work():
             try:
-                from .browser import BrowserFetcher
-                scraper = VoxScraper(BrowserFetcher())
+                
+                scraper = VoxScraper()
                 try:
                     movies = scraper.now_showing()
                 finally:
@@ -91,8 +91,8 @@ class CineBotGUI(ctk.CTk):
 
         def work():
             try:
-                from .browser import BrowserFetcher
-                scraper = VoxScraper(BrowserFetcher())
+                
+                scraper = VoxScraper()
                 try:
                     movies = scraper.coming_soon()
                 finally:
@@ -134,8 +134,8 @@ class CineBotGUI(ctk.CTk):
 
         def work():
             try:
-                from .browser import BrowserFetcher
-                scraper = VoxScraper(BrowserFetcher())
+                
+                scraper = VoxScraper()
                 try:
                     m = scraper.find_movie(safe_movie_query(movie))
                     if m is None:
@@ -170,9 +170,9 @@ class CineBotGUI(ctk.CTk):
 
         def work():
             try:
-                from .browser import BrowserFetcher
+                
                 from .exporter import export_csv, export_excel
-                scraper = VoxScraper(BrowserFetcher())
+                scraper = VoxScraper()
                 try:
                     m = scraper.find_movie(safe_movie_query(movie))
                     if m is None:
@@ -225,8 +225,8 @@ class CineBotGUI(ctk.CTk):
 
         def work():
             try:
-                from .browser import BrowserFetcher
-                scraper = VoxScraper(BrowserFetcher())
+                
+                scraper = VoxScraper()
                 notifier = self.notifier
                 m = scraper.find_movie(safe_movie_query(movie))
                 if m is None:

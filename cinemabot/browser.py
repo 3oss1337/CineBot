@@ -106,6 +106,12 @@ def close_all_drivers() -> None:
             pass
     # clear thread-locals best-effort
     _local.driver = None
+    # also close http sessions
+    try:
+        from .http_fetcher import close_session
+        close_session()
+    except Exception:
+        pass
 
 
 class BrowserFetcher:

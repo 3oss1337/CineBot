@@ -20,11 +20,22 @@ log = logging.getLogger(__name__)
 
 
 class VoxScraper:
-    def __init__(self, fetcher: Optional[BrowserFetcher] = None):
+    def __init__(self, fetcher=None):
         self.settings = get_settings()
-        self.fetcher = fetcher or BrowserFetcher()
+        if fetcher is None:
+            from .http_fetcher import HttpFetcher
+            fetcher = HttpFetcher()
+        self.fetcher = fetcher
+        # Browser fetcher for JS-rendered pages (seats)
+        self._browser_fetcher = None
         self.base = self.settings.base_url.rstrip("/")
         self._lock = threading.Lock()
+
+    def _get_browser_fetcher(self):
+        if self._browser_fetcher is None:
+            from .browser import BrowserFetcher
+            self._browser_fetcher = BrowserFetcher()
+        return self._browser_fetcher
 
     def _abs(self, href: str) -> str:
         return urljoin(self.base + "/", href)
@@ -230,6 +241,8 @@ class VoxScraper:
                     results.append(f.result())
         finally:
             close_all_drivers()
+            from .http_fetcher import close_session
+            close_session()
         # sort by date
         results.sort(key=lambda r: (r.showtimes[0].date if r.showtimes else "",))
         return results
@@ -251,12 +264,16 @@ class VoxScraper:
                 list(ex.map(_one, ms.showtimes))
         finally:
             close_all_drivers()
+            from .http_fetcher import close_session
+            close_session()
 
     def seat_availability(self, session_id: str) -> dict:
+        bf = self._get_browser_fetcher()
         url = f"{self.base}/booking/{session_id}"
-        self.fetcher.fetch(url)
+        bf.fetch(url)
         import time
         time.sleep(2)
+        from .browser import get_driver
         driver = get_driver()
         current = driver.current_url
         m = re.search(r"/booking/([^/]+)/", current)
@@ -264,7 +281,7 @@ class VoxScraper:
             raise RuntimeError("Could not resolve booking token")
         token_part = m.group(1)
         seats_url = f"{self.base}/booking/{token_part}/seats/fetch#seats"
-        self.fetcher.fetch(seats_url)
+        bf.fetch(seats_url)
         import time
         time.sleep(5)
         html = get_driver().page_source

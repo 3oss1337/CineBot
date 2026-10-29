@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from .browser import BrowserFetcher, close_all_drivers, close_driver
+from .browser import close_all_drivers, close_driver
 from .config import get_settings, reset_settings
 from .models import Movie
 from .notifier import Notifier
@@ -24,7 +24,7 @@ console = Console()
 
 
 def _make_scraper() -> VoxScraper:
-    return VoxScraper(BrowserFetcher())
+    return VoxScraper()
 
 
 def _print_movies(movies, title: str) -> None:

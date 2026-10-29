@@ -97,8 +97,8 @@ class TelegramBotRunner:
     def _cmd_movies(self, chat_id) -> None:
         self.reply(chat_id, "Fetching now showing…")
         try:
-            from .browser import BrowserFetcher, close_all_drivers
-            scraper = VoxScraper(BrowserFetcher())
+            from .browser import close_all_drivers
+            scraper = VoxScraper()
             try:
                 movies = scraper.now_showing()
             finally:
@@ -119,8 +119,8 @@ class TelegramBotRunner:
     def _cmd_coming(self, chat_id) -> None:
         self.reply(chat_id, "Fetching coming soon…")
         try:
-            from .browser import BrowserFetcher, close_all_drivers
-            scraper = VoxScraper(BrowserFetcher())
+            from .browser import close_all_drivers
+            scraper = VoxScraper()
             try:
                 movies = scraper.coming_soon()
             finally:
@@ -139,8 +139,8 @@ class TelegramBotRunner:
             self.reply(chat_id, f"Error: {_html.escape(str(e))}")
 
     def _cmd_movie(self, chat_id, arg: str, cmd: str) -> None:
-        from .browser import BrowserFetcher, close_all_drivers
-        scraper = VoxScraper(BrowserFetcher())
+        from .browser import close_all_drivers
+        scraper = VoxScraper()
         notifier = Notifier()
         try:
             movie = scraper.find_movie(safe_movie_query(arg))
