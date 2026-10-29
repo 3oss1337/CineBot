@@ -228,6 +228,29 @@ def tickets(
         close_all_drivers()
 
 
+@app.command(name="test-email")
+def test_email(verbose: bool = False):
+    """Send a test email to verify SMTP configuration."""
+    setup_logging(verbose)
+    notifier = Notifier()
+    settings = get_settings()
+    if not settings.email_configured():
+        console.print("[red]Email not configured. Fill CINEBOT_SMTP_* in .env first.[/red]")
+        console.print("Copy .env.example to .env and set SMTP_USER, SMTP_PASSWORD, EMAIL_TO.")
+        raise typer.Exit(1)
+    console.print(f"Sending test email to {settings.email_to} via {settings.smtp_host}:{settings.smtp_port} ...")
+    ok = notifier.send_email(
+        subject="[CineBot] Test email",
+        body="This is a test email from CineBot. If you received this, email notifications are working.",
+        html="<h2>CineBot test</h2><p>Email notifications are working.</p>",
+    )
+    if ok:
+        console.print("[green]Test email sent successfully.[/green]")
+    else:
+        console.print("[red]Failed to send. Check credentials and SMTP settings.[/red]")
+        raise typer.Exit(1)
+
+
 @app.command()
 def config(verbose: bool = False):
     """Show configuration status (secrets redacted)."""
