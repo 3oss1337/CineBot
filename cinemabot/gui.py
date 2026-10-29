@@ -116,6 +116,9 @@ class CineBotGUI(ctk.CTk):
         self.st_all_dates.pack(side="left", padx=5)
         self.st_seats = ctk.CTkCheckBox(row, text="Seats")
         self.st_seats.pack(side="left", padx=5)
+        ctk.CTkLabel(row, text="Fav rows:").pack(side="left", padx=5)
+        self.st_fav = ctk.CTkEntry(row, width=80, placeholder_text="5,6,7")
+        self.st_fav.pack(side="left", padx=5)
         ctk.CTkButton(row, text="Fetch", command=self._fetch_showtimes).pack(side="left", padx=5)
         ctk.CTkButton(row, text="Export Excel", command=self._export_showtimes).pack(side="left", padx=5)
 
@@ -131,10 +134,11 @@ class CineBotGUI(ctk.CTk):
         self.st_box.insert("end", "Loading...\n")
         all_dates = bool(self.st_all_dates.get())
         seats = bool(self.st_seats.get())
+        fav_text = self.st_fav.get().strip()
+        fav = [r.strip() for r in fav_text.split(",") if r.strip().isdigit()] if fav_text else (self.settings.get_favorite_rows() if seats else None)
 
         def work():
             try:
-                
                 scraper = VoxScraper()
                 try:
                     m = scraper.find_movie(safe_movie_query(movie))
@@ -142,12 +146,12 @@ class CineBotGUI(ctk.CTk):
                         self.after(0, lambda: self._set_text(self.st_box, f"Movie not found: {movie}"))
                         return
                     if all_dates:
-                        results = scraper.all_dates_showtimes(m, include_seats=seats)
+                        results = scraper.all_dates_showtimes(m, include_seats=seats, favorite_rows=fav if seats else None)
                         text = "\n\n".join(self.notifier.format_showtimes(ms) for ms in results)
                     else:
                         ms = scraper.showtimes(m)
                         if seats:
-                            scraper._fill_seats(ms)
+                            scraper._fill_seats(ms, favorite_rows=fav)
                         text = self.notifier.format_showtimes(ms)
                 finally:
                     close_all_drivers()
@@ -178,7 +182,9 @@ class CineBotGUI(ctk.CTk):
                     if m is None:
                         self.after(0, lambda: self._set_text(self.st_box, f"Movie not found: {movie}"))
                         return
-                    results = scraper.all_dates_showtimes(m, include_seats=True)
+                    fav_text = self.st_fav.get().strip()
+                    fav = [r.strip() for r in fav_text.split(",") if r.strip().isdigit()] if fav_text else (self.settings.get_favorite_rows() or None)
+                    results = scraper.all_dates_showtimes(m, include_seats=True, favorite_rows=fav)
                 finally:
                     close_all_drivers()
                 if path.lower().endswith(".csv"):

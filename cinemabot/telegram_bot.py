@@ -163,7 +163,8 @@ class TelegramBotRunner:
                 return
             if cmd == "/seats":
                 self.reply(chat_id, f"Fetching seats for {_html.escape(movie.title)} (slow)…")
-                results = scraper.all_dates_showtimes(movie, include_seats=True)
+                fav = self.settings.get_favorite_rows()
+                results = scraper.all_dates_showtimes(movie, include_seats=True, favorite_rows=fav if fav else None)
                 for ms in results:
                     self.reply(chat_id, _html.escape(notifier.format_showtimes(ms)))
                 return

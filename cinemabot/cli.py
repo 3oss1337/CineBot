@@ -81,6 +81,7 @@ def showtimes(
     movie: str,
     all_dates: bool = typer.Option(False, "--all-dates", "-a", help="Fetch showtimes for all available dates"),
     seats: bool = typer.Option(False, "--seats", "-s", help="Fetch seat availability (slow)"),
+    favorite_rows: Optional[str] = typer.Option(None, "--favorite-rows", "-f", help="Comma-separated favorite rows (e.g. 5,6,7)"),
     export: Optional[str] = typer.Option(None, "--export", "-e", help="Export to file (.xlsx or .csv)"),
     verbose: bool = False,
 ):
@@ -96,8 +97,13 @@ def showtimes(
         if export:
             all_dates = True
             seats = True
+        fav = None
+        if favorite_rows:
+            fav = [r.strip() for r in favorite_rows.split(",") if r.strip().isdigit()]
+        elif settings.get_favorite_rows():
+            fav = settings.get_favorite_rows()
         if all_dates:
-            results = scraper.all_dates_showtimes(m, include_seats=seats)
+            results = scraper.all_dates_showtimes(m, include_seats=seats, favorite_rows=fav if seats else None)
             for ms in results:
                 console.print(notifier.format_showtimes(ms))
                 console.print()
@@ -110,7 +116,7 @@ def showtimes(
         else:
             ms = scraper.showtimes(m)
             if seats:
-                scraper._fill_seats(ms)
+                scraper._fill_seats(ms, favorite_rows=fav)
             console.print(notifier.format_showtimes(ms))
             if export:
                 if export.lower().endswith(".csv"):

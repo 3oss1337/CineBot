@@ -209,7 +209,7 @@ class VoxScraper:
         ms.showtimes = uniq
         return ms
 
-    def all_dates_showtimes(self, movie: Movie, include_seats: bool = False, max_workers: Optional[int] = None) -> List[MovieShowtimes]:
+    def all_dates_showtimes(self, movie: Movie, include_seats: bool = False, favorite_rows: Optional[list] = None, max_workers: Optional[int] = None) -> List[MovieShowtimes]:
         if max_workers is None:
             max_workers = self.settings.pool_size
         dates = self.available_dates(movie)
@@ -220,7 +220,7 @@ class VoxScraper:
             try:
                 ms = self.showtimes(movie, dstr)
                 if include_seats:
-                    self._fill_seats(ms)
+                    self._fill_seats(ms, favorite_rows=favorite_rows)
                 return ms
             except Exception as e:
                 log.warning("Failed showtimes for %s %s: %s", movie.slug, dstr, e)
@@ -239,15 +239,18 @@ class VoxScraper:
         results.sort(key=lambda r: (r.showtimes[0].date if r.showtimes else "",))
         return results
 
-    def _fill_seats(self, ms: MovieShowtimes) -> None:
+    def _fill_seats(self, ms: MovieShowtimes, favorite_rows: Optional[list] = None) -> None:
+        favorite_rows = favorite_rows or []
         def _one(st: Showtime) -> None:
             if not st.session_id or not st.booking_url:
                 return
             try:
-                info = self.seat_availability(st.session_id)
+                info = self.seat_availability(st.session_id, favorite_rows=favorite_rows)
                 st.total_seats = info["total"]
                 st.available_seats = info["available"]
                 st.sold_seats = info["sold"]
+                st.row_seats = info["rows"]
+                st.favorite_rows = favorite_rows
             except Exception as e:
                 log.debug("Seat fetch failed for %s: %s", st.session_id, e)
 
@@ -259,7 +262,8 @@ class VoxScraper:
             from .http_fetcher import close_session
             close_session()
 
-    def seat_availability(self, session_id: str) -> dict:
+    def seat_availability(self, session_id: str, favorite_rows: Optional[list] = None) -> dict:
+        favorite_rows = favorite_rows or []
         import time
         from curl_cffi import requests as cfr
         sess = None
@@ -274,27 +278,39 @@ class VoxScraper:
             raise RuntimeError("Could not resolve booking token")
         token_part = m.group(1)
         seats_url = f"{self.base}/booking/{token_part}/seats/processing"
-        # Trigger processing + poll until seats render
         html = ""
         for attempt in range(6):
             r = sess.get(seats_url, timeout=20)
             html = r.text
             if 'class="seat' in html and html.count('class="seat') > 50:
                 break
-            time.sleep(2)
+            time.sleep(1.5)
         soup = BeautifulSoup(html, "html.parser")
         seats = soup.find_all(class_="seat")
         total = avail = sold = 0
+        row_data = {}
         for x in seats:
             cls = x.get("class", [])
             if "blank" in cls:
                 continue
+            row = x.get("data-row", "")
+            if row not in row_data:
+                row_data[row] = {"total": 0, "available": 0, "sold": 0}
+            row_data[row]["total"] += 1
             total += 1
             if "sold" in cls:
                 sold += 1
+                row_data[row]["sold"] += 1
             else:
                 avail += 1
-        return {"total": total, "available": avail, "sold": sold}
+                row_data[row]["available"] += 1
+        return {
+            "total": total,
+            "available": avail,
+            "sold": sold,
+            "rows": row_data,
+            "favorite_rows": favorite_rows,
+        }
 
     def has_booking_open(self, movie: Movie) -> bool:
         try:

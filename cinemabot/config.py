@@ -33,6 +33,9 @@ class Settings(BaseModel):
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
 
+    # Favorite rows (comma-separated row numbers, e.g. "5,6,7")
+    favorite_rows: str = ""
+
     poll_interval: int = Field(default=60, ge=5, le=3600)
     watch_timeout: int = Field(default=0, ge=0)  # 0 = forever
 
@@ -76,6 +79,7 @@ class Settings(BaseModel):
             sendgrid_from=os.getenv("CINEBOT_SENDGRID_FROM") or None,
             telegram_bot_token=os.getenv("CINEBOT_TELEGRAM_BOT_TOKEN") or None,
             telegram_chat_id=os.getenv("CINEBOT_TELEGRAM_CHAT_ID") or None,
+            favorite_rows=os.getenv("CINEBOT_FAVORITE_ROWS") or "",
             poll_interval=_int("CINEBOT_POLL_INTERVAL", 60),
             watch_timeout=_int("CINEBOT_WATCH_TIMEOUT", 0),
             headless=_bool("CINEBOT_HEADLESS", True),
@@ -93,6 +97,14 @@ class Settings(BaseModel):
 
     def telegram_configured(self) -> bool:
         return bool(self.telegram_bot_token and self.telegram_chat_id)
+
+    def get_favorite_rows(self) -> list:
+        rows = []
+        for part in (self.favorite_rows or "").split(","):
+            part = part.strip()
+            if part.isdigit():
+                rows.append(part)
+        return rows
 
 
 _settings: Optional[Settings] = None

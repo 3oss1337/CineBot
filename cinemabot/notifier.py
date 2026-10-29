@@ -134,6 +134,19 @@ class Notifier:
                     if st.total_seats:
                         seat_info = f"  [seats {st.available_seats}/{st.total_seats} avail, {st.sold_seats} sold]"
                     lines.append(f"  {fmt}: {st.time}  ({status}){seat_info}")
+                    # Favorite rows highlight
+                    if st.favorite_rows and st.row_seats:
+                        lines.append("    * Favorite rows:")
+                        for fr in st.favorite_rows:
+                            rd = st.row_seats.get(fr, {})
+                            if rd:
+                                a = rd.get("available", 0)
+                                t = rd.get("total", 0)
+                                sold = rd.get("sold", 0)
+                                icon = "[OK]" if a > 0 else "[FULL]"
+                                lines.append(f"       Row {fr}: {a}/{t} available, {sold} sold {icon}")
+                            else:
+                                lines.append(f"       Row {fr}: no data")
             lines.append("")
         lines.append(f"Available: {ms.available_count}  Sold out: {ms.sold_out_count}")
         return "\n".join(lines)

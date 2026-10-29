@@ -33,6 +33,9 @@ class Showtime:
     total_seats: int = 0
     available_seats: int = 0
     sold_seats: int = 0
+    # row-level breakdown: {row_number: {"total": N, "available": M, "sold": K}}
+    row_seats: dict = field(default_factory=dict)
+    favorite_rows: list = field(default_factory=list)
 
 @dataclass
 class MovieShowtimes:

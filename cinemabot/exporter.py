@@ -14,6 +14,14 @@ def _rows(all_ms: List[MovieShowtimes]) -> List[dict]:
     rows = []
     for ms in all_ms:
         for st in ms.showtimes:
+            fav_summary = ""
+            if st.favorite_rows and st.row_seats:
+                parts = []
+                for fr in st.favorite_rows:
+                    rd = st.row_seats.get(fr, {})
+                    if rd:
+                        parts.append(f"Row {fr}: {rd.get('available',0)}/{rd.get('total',0)} avail")
+                fav_summary = "; ".join(parts)
             rows.append(
                 {
                     "Date": st.date,
@@ -26,6 +34,7 @@ def _rows(all_ms: List[MovieShowtimes]) -> List[dict]:
                     "Total Seats": st.total_seats,
                     "Available Seats": st.available_seats,
                     "Sold Seats": st.sold_seats,
+                    "Favorite Rows": fav_summary,
                     "Booking URL": st.booking_url,
                 }
             )
