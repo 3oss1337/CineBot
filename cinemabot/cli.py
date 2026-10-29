@@ -1,0 +1,217 @@
+"""CLI for CineBot."""
+from __future__ import annotations
+
+import logging
+from typing import Optional
+
+import typer
+from rich.console import Console
+from rich.table import Table
+
+from .browser import BrowserFetcher, close_driver
+from .config import get_settings, reset_settings
+from .models import Movie
+from .notifier import Notifier
+from .scraper import VoxScraper
+from .utils import setup_logging, safe_movie_query
+from .watcher import watch_booking, watch_tickets
+
+app = typer.Typer(help="CineBot - VOX Cinemas Egypt ticket watcher", no_args_is_help=True)
+console = Console()
+
+
+def _make_scraper() -> VoxScraper:
+    return VoxScraper(BrowserFetcher())
+
+
+def _print_movies(movies, title: str) -> None:
+    table = Table(title=title)
+    table.add_column("#", style="dim")
+    table.add_column("Title")
+    table.add_column("Rating")
+    table.add_column("Language")
+    table.add_column("Slug", style="dim")
+    for i, m in enumerate(movies, 1):
+        table.add_row(str(i), m.title, m.classification, m.language, m.slug)
+    console.print(table)
+    console.print(f"Total: {len(movies)}")
+
+
+@app.command()
+def movies(verbose: bool = False):
+    """List now-showing movies."""
+    setup_logging(verbose)
+    scraper = _make_scraper()
+    try:
+        ms = scraper.now_showing()
+        _print_movies(ms, "Now Showing - VOX Cinemas Egypt")
+    finally:
+        close_driver()
+
+
+@app.command()
+def coming(verbose: bool = False):
+    """List coming-soon movies."""
+    setup_logging(verbose)
+    scraper = _make_scraper()
+    try:
+        ms = scraper.coming_soon()
+        _print_movies(ms, "Coming Soon - VOX Cinemas Egypt")
+    finally:
+        close_driver()
+
+
+@app.command()
+def search(query: str, verbose: bool = False):
+    """Search movies by name."""
+    setup_logging(verbose)
+    scraper = _make_scraper()
+    try:
+        ms = scraper.search_movies(safe_movie_query(query))
+        _print_movies(ms, f"Search: {query}")
+    finally:
+        close_driver()
+
+
+@app.command()
+def showtimes(movie: str, verbose: bool = False):
+    """Show showtimes for a movie."""
+    setup_logging(verbose)
+    scraper = _make_scraper()
+    notifier = Notifier()
+    try:
+        m = scraper.find_movie(safe_movie_query(movie))
+        if m is None:
+            console.print(f"[red]Movie not found: {movie}[/red]")
+            raise typer.Exit(1)
+        ms = scraper.showtimes(m)
+        console.print(notifier.format_showtimes(ms))
+    finally:
+        close_driver()
+
+
+@app.command()
+def cinemas(verbose: bool = False):
+    """List cinemas (derived)."""
+    setup_logging(verbose)
+    scraper = _make_scraper()
+    try:
+        cs = scraper.cinemas()
+        for c in cs:
+            console.print(c)
+    finally:
+        close_driver()
+
+
+@app.command()
+def watch(
+    movie: str,
+    interval: Optional[int] = typer.Option(None, "--interval", "-i", help="Poll interval seconds"),
+    timeout: Optional[int] = typer.Option(None, "--timeout", "-t", help="Max seconds (0=forever)"),
+    no_email: bool = typer.Option(False, "--no-email", help="Disable email notifications"),
+    once: bool = typer.Option(False, "--once", help="Single check, do not loop"),
+    verbose: bool = False,
+):
+    """Watch an upcoming movie until booking opens, then notify."""
+    setup_logging(verbose)
+    settings = get_settings()
+    if interval is None:
+        interval = settings.poll_interval
+    if timeout is None:
+        timeout = settings.watch_timeout
+
+    scraper = _make_scraper()
+    notifier = Notifier()
+    try:
+        if once:
+            m = scraper.find_movie(safe_movie_query(movie))
+            if m is None:
+                console.print(f"[yellow]Not listed yet: {movie}[/yellow]")
+                return
+            ms = scraper.showtimes(m)
+            console.print(notifier.format_showtimes(ms))
+            if ms.showtimes:
+                console.print("[green]Booking is OPEN.[/green]")
+                if not no_email and settings.email_configured():
+                    notifier.notify_booking_open(m, ms)
+            else:
+                console.print("[yellow]No showtimes yet.[/yellow]")
+            return
+        watch_booking(
+            scraper,
+            notifier,
+            safe_movie_query(movie),
+            interval=interval,
+            timeout=timeout,
+            email=(not no_email),
+        )
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Stopped by user.[/yellow]")
+    finally:
+        close_driver()
+
+
+@app.command()
+def tickets(
+    movie: str,
+    interval: Optional[int] = typer.Option(None, "--interval", "-i", help="Poll interval seconds"),
+    timeout: Optional[int] = typer.Option(None, "--timeout", "-t", help="Max seconds (0=forever)"),
+    no_email: bool = typer.Option(False, "--no-email", help="Disable email notifications"),
+    notify_initial: bool = typer.Option(False, "--notify-initial", help="Email current available tickets on first run"),
+    once: bool = typer.Option(False, "--once", help="Single check, do not loop"),
+    verbose: bool = False,
+):
+    """Watch a now-showing movie for newly available tickets."""
+    setup_logging(verbose)
+    settings = get_settings()
+    if interval is None:
+        interval = settings.poll_interval
+    if timeout is None:
+        timeout = settings.watch_timeout
+
+    scraper = _make_scraper()
+    notifier = Notifier()
+    try:
+        if once:
+            m = scraper.find_movie(safe_movie_query(movie))
+            if m is None:
+                console.print(f"[red]Movie not found: {movie}[/red]")
+                raise typer.Exit(1)
+            ms = scraper.showtimes(m)
+            console.print(notifier.format_showtimes(ms))
+            return
+        watch_tickets(
+            scraper,
+            notifier,
+            safe_movie_query(movie),
+            interval=interval,
+            timeout=timeout,
+            email=(not no_email),
+            notify_initial=notify_initial,
+        )
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Stopped by user.[/yellow]")
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+    finally:
+        close_driver()
+
+
+@app.command()
+def config(verbose: bool = False):
+    """Show configuration status (secrets redacted)."""
+    setup_logging(verbose)
+    s = get_settings()
+    console.print(f"Base URL: {s.base_url}")
+    console.print(f"SMTP host: {s.smtp_host}:{s.smtp_port} TLS={s.smtp_use_tls}")
+    console.print(f"SMTP user: {s.smtp_user or '(not set)'}")
+    console.print(f"Email to: {s.email_to or '(not set)'}")
+    console.print(f"Email configured: {s.email_configured()}")
+    console.print(f"Poll interval: {s.poll_interval}s")
+    console.print(f"Headless: {s.headless}")
+    console.print(f"Pool size: {s.pool_size}")
+
+
+if __name__ == "__main__":
+    app()

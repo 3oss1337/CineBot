@@ -1,0 +1,13 @@
+# CineBot - VOX Cinemas Egypt ticket watcher
+# Install: pip install -r requirements.txt
+# Then: python -m playwright install chromium  (not needed; uses Chrome)
+
+selenium>=4.20.0
+beautifulsoup4>=4.12.0
+typer>=0.12.0
+rich>=13.0.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+tenacity>=8.0.0
+httpx>=0.27.0
+lxml>=5.0.0
