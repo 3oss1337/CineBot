@@ -49,11 +49,13 @@ class Notifier:
 
     @staticmethod
     def format_showtimes(ms: MovieShowtimes) -> str:
-        lines = [f"Movie: {ms.movie.title}", f"Slug: {ms.movie.slug}", ""]
+        lines = [f"Movie: {ms.movie.title}", f"Slug: {ms.movie.slug}"]
+        if ms.showtimes:
+            lines.append(f"Date: {ms.showtimes[0].date}")
+        lines.append("")
         if not ms.showtimes:
             lines.append("No showtimes found.")
             return "\n".join(lines)
-        # group by cinema
         by_cinema = {}
         for st in ms.showtimes:
             by_cinema.setdefault(st.cinema, []).append(st)
@@ -63,12 +65,12 @@ class Notifier:
             for st in sts:
                 by_fmt.setdefault(st.format_name or "Standard", []).append(st)
             for fmt, sts2 in by_fmt.items():
-                avail = [s.time for s in sts2 if s.available]
-                sold = [s.time for s in sts2 if not s.available]
-                if avail:
-                    lines.append(f"  {fmt}: " + ", ".join(avail) + "  (available)")
-                if sold:
-                    lines.append(f"  {fmt}: " + ", ".join(sold) + "  (SOLD OUT)")
+                for st in sts2:
+                    status = "available" if st.available else "SOLD OUT"
+                    seat_info = ""
+                    if st.total_seats:
+                        seat_info = f"  [seats {st.available_seats}/{st.total_seats} avail, {st.sold_seats} sold]"
+                    lines.append(f"  {fmt}: {st.time}  ({status}){seat_info}")
             lines.append("")
         lines.append(f"Available: {ms.available_count}  Sold out: {ms.sold_out_count}")
         return "\n".join(lines)

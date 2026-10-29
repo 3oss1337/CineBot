@@ -12,6 +12,7 @@ from .browser import BrowserFetcher, close_driver
 from .config import get_settings, reset_settings
 from .models import Movie
 from .notifier import Notifier
+from .exporter import export_csv, export_excel
 from .scraper import VoxScraper
 from .utils import setup_logging, safe_movie_query
 from .watcher import watch_booking, watch_tickets
@@ -74,7 +75,13 @@ def search(query: str, verbose: bool = False):
 
 
 @app.command()
-def showtimes(movie: str, verbose: bool = False):
+def showtimes(
+    movie: str,
+    all_dates: bool = typer.Option(False, "--all-dates", "-a", help="Fetch showtimes for all available dates"),
+    seats: bool = typer.Option(False, "--seats", "-s", help="Fetch seat availability (slow)"),
+    export: Optional[str] = typer.Option(None, "--export", "-e", help="Export to file (.xlsx or .csv)"),
+    verbose: bool = False,
+):
     """Show showtimes for a movie."""
     setup_logging(verbose)
     scraper = _make_scraper()
@@ -84,8 +91,31 @@ def showtimes(movie: str, verbose: bool = False):
         if m is None:
             console.print(f"[red]Movie not found: {movie}[/red]")
             raise typer.Exit(1)
-        ms = scraper.showtimes(m)
-        console.print(notifier.format_showtimes(ms))
+        if export:
+            all_dates = True
+            seats = True
+        if all_dates:
+            results = scraper.all_dates_showtimes(m, include_seats=seats)
+            for ms in results:
+                console.print(notifier.format_showtimes(ms))
+                console.print()
+            if export:
+                if export.lower().endswith(".csv"):
+                    export_csv(export, results)
+                else:
+                    export_excel(export, results)
+                console.print(f"[green]Exported to {export}[/green]")
+        else:
+            ms = scraper.showtimes(m)
+            if seats:
+                scraper._fill_seats(ms)
+            console.print(notifier.format_showtimes(ms))
+            if export:
+                if export.lower().endswith(".csv"):
+                    export_csv(export, [ms])
+                else:
+                    export_excel(export, [ms])
+                console.print(f"[green]Exported to {export}[/green]")
     finally:
         close_driver()
 

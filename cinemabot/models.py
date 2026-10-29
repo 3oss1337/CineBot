@@ -26,10 +26,13 @@ class Showtime:
     cinema: str
     format_name: str
     time: str
+    date: str = ""
     booking_url: str = ""
     available: bool = True
     session_id: str = ""
-
+    total_seats: int = 0
+    available_seats: int = 0
+    sold_seats: int = 0
 
 @dataclass
 class MovieShowtimes:
