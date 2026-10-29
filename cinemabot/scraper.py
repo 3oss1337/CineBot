@@ -11,7 +11,7 @@ from urllib.parse import urljoin, urlparse, parse_qs
 
 from bs4 import BeautifulSoup
 
-from .browser import BrowserFetcher, close_all_drivers, get_driver
+from .browser import close_all_drivers
 from .config import get_settings
 from .models import Movie, MovieShowtimes, Showtime
 from .utils import safe_movie_query
@@ -26,16 +26,8 @@ class VoxScraper:
             from .http_fetcher import HttpFetcher
             fetcher = HttpFetcher()
         self.fetcher = fetcher
-        # Browser fetcher for JS-rendered pages (seats)
-        self._browser_fetcher = None
         self.base = self.settings.base_url.rstrip("/")
         self._lock = threading.Lock()
-
-    def _get_browser_fetcher(self):
-        if self._browser_fetcher is None:
-            from .browser import BrowserFetcher
-            self._browser_fetcher = BrowserFetcher()
-        return self._browser_fetcher
 
     def _abs(self, href: str) -> str:
         return urljoin(self.base + "/", href)
@@ -268,23 +260,28 @@ class VoxScraper:
             close_session()
 
     def seat_availability(self, session_id: str) -> dict:
-        bf = self._get_browser_fetcher()
-        url = f"{self.base}/booking/{session_id}"
-        bf.fetch(url)
         import time
-        time.sleep(2)
-        from .browser import get_driver
-        driver = get_driver()
-        current = driver.current_url
-        m = re.search(r"/booking/([^/]+)/", current)
+        from curl_cffi import requests as cfr
+        sess = None
+        try:
+            from .http_fetcher import get_session
+            sess = get_session()
+        except Exception:
+            sess = cfr.Session(impersonate="chrome124")
+        resp = sess.get(f"{self.base}/booking/{session_id}", timeout=20, allow_redirects=True)
+        m = re.search(r"/booking/([^/]+)/", str(resp.url))
         if not m:
             raise RuntimeError("Could not resolve booking token")
         token_part = m.group(1)
-        seats_url = f"{self.base}/booking/{token_part}/seats/fetch#seats"
-        bf.fetch(seats_url)
-        import time
-        time.sleep(5)
-        html = get_driver().page_source
+        seats_url = f"{self.base}/booking/{token_part}/seats/processing"
+        # Trigger processing + poll until seats render
+        html = ""
+        for attempt in range(6):
+            r = sess.get(seats_url, timeout=20)
+            html = r.text
+            if 'class="seat' in html and html.count('class="seat') > 50:
+                break
+            time.sleep(2)
         soup = BeautifulSoup(html, "html.parser")
         seats = soup.find_all(class_="seat")
         total = avail = sold = 0

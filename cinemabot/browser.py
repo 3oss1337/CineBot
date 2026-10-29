@@ -6,9 +6,17 @@ import threading
 import time
 from typing import Optional
 
-from selenium import webdriver
-from selenium.common.exceptions import TimeoutException, WebDriverException
-from selenium.webdriver.chrome.options import Options
+try:
+    from selenium import webdriver
+    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.webdriver.chrome.options import Options
+    _SELENIUM_AVAILABLE = True
+except ImportError:
+    _SELENIUM_AVAILABLE = False
+    webdriver = None
+    TimeoutException = Exception
+    WebDriverException = Exception
+    Options = None
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from .config import get_settings
@@ -59,7 +67,9 @@ def _build_options(settings) -> Options:
     return opts
 
 
-def _create_driver(settings) -> webdriver.Chrome:
+def _create_driver(settings):
+    if not _SELENIUM_AVAILABLE:
+        raise RuntimeError("selenium not installed")
     opts = _build_options(settings)
     driver = webdriver.Chrome(options=opts)
     driver.set_page_load_timeout(30)
