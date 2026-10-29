@@ -25,6 +25,17 @@ copy .env.example .env
 # edit .env with your SMTP credentials (Gmail App Password recommended)
 ```
 
+## Telegram bot
+
+Try the live bot: **[@cinebot_alerts_bot](https://t.me/cinebot_alerts_bot)** on Telegram.
+
+Or run your own:
+```bash
+python -m cinemabot telegram
+```
+
+Commands in chat: `/movies`, `/coming`, `/search`, `/showtimes`, `/dates`, `/seats`, `/watch`, `/tickets`, `/stop`, `/help`.
+
 ## Usage
 
 ```bash
