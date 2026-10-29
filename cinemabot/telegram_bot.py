@@ -1,6 +1,7 @@
 """Interactive Telegram bot: chat with CineBot to query movies and set watches."""
 from __future__ import annotations
 
+import html as _html
 import logging
 import threading
 import time
@@ -22,12 +23,12 @@ HELP_TEXT = (
     "Commands:\n"
     "/movies — now showing\n"
     "/coming — coming soon\n"
-    "/search <name> — find a movie\n"
-    "/showtimes <name> — showtimes today\n"
-    "/dates <name> — all available dates\n"
-    "/seats <name> — showtimes + seat counts (slow)\n"
-    "/watch <name> — notify when booking opens\n"
-    "/tickets <name> — notify on new available tickets\n"
+    "/search name — find a movie\n"
+    "/showtimes name — showtimes today\n"
+    "/dates name — all available dates\n"
+    "/seats name — showtimes + seat counts (slow)\n"
+    "/watch name — notify when booking opens\n"
+    "/tickets name — notify on new available tickets\n"
     "/stop — cancel active watches\n"
     "/help — this message"
 )
@@ -107,13 +108,13 @@ class TelegramBotRunner:
                 return
             lines = ["🎬 <b>Now Showing</b>", ""]
             for m in movies[:40]:
-                lines.append(f"• {m.title} ({m.classification})")
+                lines.append(f"• {_html.escape(m.title)} ({_html.escape(m.classification)})")
             if len(movies) > 40:
                 lines.append(f"…and {len(movies)-40} more")
             self.reply(chat_id, "\n".join(lines))
         except Exception as e:
             log.exception("movies cmd failed")
-            self.reply(chat_id, f"Error: {e}")
+            self.reply(chat_id, f"Error: {_html.escape(str(e))}")
 
     def _cmd_coming(self, chat_id) -> None:
         self.reply(chat_id, "Fetching coming soon…")
@@ -129,13 +130,13 @@ class TelegramBotRunner:
                 return
             lines = ["🗓️ <b>Coming Soon</b>", ""]
             for m in movies[:40]:
-                lines.append(f"• {m.title}")
+                lines.append(f"• {_html.escape(m.title)}")
             if len(movies) > 40:
                 lines.append(f"…and {len(movies)-40} more")
             self.reply(chat_id, "\n".join(lines))
         except Exception as e:
             log.exception("coming cmd failed")
-            self.reply(chat_id, f"Error: {e}")
+            self.reply(chat_id, f"Error: {_html.escape(str(e))}")
 
     def _cmd_movie(self, chat_id, arg: str, cmd: str) -> None:
         from .browser import BrowserFetcher, close_all_drivers
@@ -147,24 +148,24 @@ class TelegramBotRunner:
                 self.reply(chat_id, f"Movie not found: {arg}")
                 return
             if cmd == "/search":
-                self.reply(chat_id, f"Found: <b>{movie.title}</b>\n{movie.url}")
+                self.reply(chat_id, f"Found: <b>{_html.escape(movie.title)}</b>\n{movie.url}")
                 return
             if cmd == "/showtimes":
-                self.reply(chat_id, f"Fetching showtimes for {movie.title}…")
+                self.reply(chat_id, f"Fetching showtimes for {_html.escape(movie.title)}…")
                 ms = scraper.showtimes(movie)
-                self.reply(chat_id, notifier.format_showtimes(ms))
+                self.reply(chat_id, _html.escape(notifier.format_showtimes(ms)))
                 return
             if cmd == "/dates":
-                self.reply(chat_id, f"Fetching all dates for {movie.title}…")
+                self.reply(chat_id, f"Fetching all dates for {_html.escape(movie.title)}…")
                 results = scraper.all_dates_showtimes(movie, include_seats=False)
                 for ms in results:
-                    self.reply(chat_id, notifier.format_showtimes(ms))
+                    self.reply(chat_id, _html.escape(notifier.format_showtimes(ms)))
                 return
             if cmd == "/seats":
-                self.reply(chat_id, f"Fetching seats for {movie.title} (slow)…")
+                self.reply(chat_id, f"Fetching seats for {_html.escape(movie.title)} (slow)…")
                 results = scraper.all_dates_showtimes(movie, include_seats=True)
                 for ms in results:
-                    self.reply(chat_id, notifier.format_showtimes(ms))
+                    self.reply(chat_id, _html.escape(notifier.format_showtimes(ms)))
                 return
             if cmd == "/watch":
                 self.reply(chat_id, f"Watching for booking to open: {movie.title}…")
@@ -176,20 +177,20 @@ class TelegramBotRunner:
                 return
         except Exception as e:
             log.exception("movie cmd failed")
-            self.reply(chat_id, f"Error: {e}")
+            self.reply(chat_id, f"Error: {_html.escape(str(e))}")
         finally:
             close_all_drivers()
 
     def _start_watch(self, chat_id, movie: Movie, scraper, notifier, mode: str) -> None:
         # run watcher in background thread; notify via telegram
         def _cb_found(m, ms):
-            text = f"🎬 Booking OPEN: {m.title}\n\n{notifier.format_showtimes(ms)}\n\n{m.url}"
+            text = f"🎬 Booking OPEN: {_html.escape(m.title)}\n\n{_html.escape(notifier.format_showtimes(ms))}\n\n{m.url}"
             self.send(chat_id, text)
 
         def _cb_update(m, slots):
-            lines = [f"🎟️ New tickets: {m.title}", ""]
+            lines = [f"🎟️ New tickets: {_html.escape(m.title)}", ""]
             for s in slots:
-                lines.append(f"- {s.cinema} | {s.format_name} | {s.time}")
+                lines.append(f"- {_html.escape(s.cinema)} | {_html.escape(s.format_name)} | {_html.escape(s.time)}")
                 if s.booking_url:
                     lines.append(f"  {s.booking_url}")
             self.send(chat_id, "\n".join(lines))
@@ -212,7 +213,7 @@ class TelegramBotRunner:
                     )
             except Exception as e:
                 log.exception("watch failed")
-                self.send(chat_id, f"Watch error: {e}")
+                self.send(chat_id, f"Watch error: {_html.escape(str(e))}")
             finally:
                 pass
 
