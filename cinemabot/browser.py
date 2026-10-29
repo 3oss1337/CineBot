@@ -16,6 +16,18 @@ from .config import get_settings
 log = logging.getLogger(__name__)
 
 _local = threading.local()
+_drivers: set = set()
+_drivers_lock = threading.Lock()
+
+
+def _register_driver(drv) -> None:
+    with _drivers_lock:
+        _drivers.add(drv)
+
+
+def _unregister_driver(drv) -> None:
+    with _drivers_lock:
+        _drivers.discard(drv)
 
 
 def _build_options(settings) -> Options:
@@ -59,6 +71,7 @@ def _create_driver(settings) -> webdriver.Chrome:
         )
     except Exception:
         pass
+    _register_driver(driver)
     return driver
 
 
@@ -78,7 +91,21 @@ def close_driver() -> None:
             drv.quit()
         except Exception:
             pass
+        _unregister_driver(drv)
         _local.driver = None
+
+
+def close_all_drivers() -> None:
+    with _drivers_lock:
+        snapshot = list(_drivers)
+        _drivers.clear()
+    for drv in snapshot:
+        try:
+            drv.quit()
+        except Exception:
+            pass
+    # clear thread-locals best-effort
+    _local.driver = None
 
 
 class BrowserFetcher:

@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from .browser import BrowserFetcher, close_driver
+from .browser import BrowserFetcher, close_all_drivers, close_driver
 from .config import get_settings, reset_settings
 from .models import Movie
 from .notifier import Notifier
@@ -47,7 +47,7 @@ def movies(verbose: bool = False):
         ms = scraper.now_showing()
         _print_movies(ms, "Now Showing - VOX Cinemas Egypt")
     finally:
-        close_driver()
+        close_all_drivers()
 
 
 @app.command()
@@ -59,7 +59,7 @@ def coming(verbose: bool = False):
         ms = scraper.coming_soon()
         _print_movies(ms, "Coming Soon - VOX Cinemas Egypt")
     finally:
-        close_driver()
+        close_all_drivers()
 
 
 @app.command()
@@ -71,7 +71,7 @@ def search(query: str, verbose: bool = False):
         ms = scraper.search_movies(safe_movie_query(query))
         _print_movies(ms, f"Search: {query}")
     finally:
-        close_driver()
+        close_all_drivers()
 
 
 @app.command()
@@ -117,7 +117,7 @@ def showtimes(
                     export_excel(export, [ms])
                 console.print(f"[green]Exported to {export}[/green]")
     finally:
-        close_driver()
+        close_all_drivers()
 
 
 @app.command()
@@ -130,7 +130,7 @@ def cinemas(verbose: bool = False):
         for c in cs:
             console.print(c)
     finally:
-        close_driver()
+        close_all_drivers()
 
 
 @app.command()
@@ -178,7 +178,7 @@ def watch(
     except KeyboardInterrupt:
         console.print("\n[yellow]Stopped by user.[/yellow]")
     finally:
-        close_driver()
+        close_all_drivers()
 
 
 @app.command()
@@ -225,7 +225,7 @@ def tickets(
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
     finally:
-        close_driver()
+        close_all_drivers()
 
 
 @app.command()

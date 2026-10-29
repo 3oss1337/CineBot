@@ -11,7 +11,7 @@ from urllib.parse import urljoin, urlparse, parse_qs
 
 from bs4 import BeautifulSoup
 
-from .browser import BrowserFetcher, get_driver
+from .browser import BrowserFetcher, close_all_drivers, get_driver
 from .config import get_settings
 from .models import Movie, MovieShowtimes, Showtime
 from .utils import safe_movie_query
@@ -223,10 +223,13 @@ class VoxScraper:
                 log.warning("Failed showtimes for %s %s: %s", movie.slug, dstr, e)
                 return MovieShowtimes(movie=movie)
 
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futs = {ex.submit(_work, ld): ld for ld in dates}
-            for f in as_completed(futs):
-                results.append(f.result())
+        try:
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futs = {ex.submit(_work, ld): ld for ld in dates}
+                for f in as_completed(futs):
+                    results.append(f.result())
+        finally:
+            close_all_drivers()
         # sort by date
         results.sort(key=lambda r: (r.showtimes[0].date if r.showtimes else "",))
         return results
@@ -243,8 +246,11 @@ class VoxScraper:
             except Exception as e:
                 log.debug("Seat fetch failed for %s: %s", st.session_id, e)
 
-        with ThreadPoolExecutor(max_workers=self.settings.pool_size) as ex:
-            list(ex.map(_one, ms.showtimes))
+        try:
+            with ThreadPoolExecutor(max_workers=self.settings.pool_size) as ex:
+                list(ex.map(_one, ms.showtimes))
+        finally:
+            close_all_drivers()
 
     def seat_availability(self, session_id: str) -> dict:
         url = f"{self.base}/booking/{session_id}"
