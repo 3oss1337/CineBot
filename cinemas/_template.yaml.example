@@ -1,0 +1,22 @@
+﻿# Template for adding a new cinema via YAML config (no Python code needed).
+# Copy this file to cinemas/<key>.yaml and fill in the values.
+# The bot auto-discovers any .yaml/.yml file in this directory.
+
+name: "My Cinema"
+key: "mycinema"
+base_url: "https://example-cinema.com"
+
+movies_url: "/"
+movie_link_pattern: 'movie-details/([^"'"'"']+)\.html'
+movie_url_template: "movie-details/{slug}.html"
+title_selector: "h1"
+title_regex: "^(\\d+\\+|PG|R\\d+|G|U)\\s*(.*)$"
+language_label: "Language:"
+coming_soon_text: "no showtimes"
+
+date_pattern: "LoadShowtimes\\('([^']+)'\\)"
+date_format: "%d-%m-%Y"
+
+showtimes_url_template: "{base_url}/movie-details/{slug}.html?business_day={date}&ajax=1"
+showtime_link_pattern: 'href="(https?://[^"]*showtime-[^"]+)"'
+format_class_prefix: "ex_"

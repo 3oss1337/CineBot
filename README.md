@@ -51,6 +51,16 @@ python -m cinemabot showtimes "Clayface" --seats --favorite-rows 5,6,7
 python -m cinemabot movies --cinema scene
 python -m cinemabot showtimes "Clayface" --cinema scene
 python -m cinemabot movies --cinema vox
+python -m cinemabot cinemas   # list available cinemas
+
+## Adding a new cinema (universal approach)
+CineBot supports two ways to add a cinema:
+
+1. **Code adapter** (for complex sites): Create `cinemabot/cinemas/<name>.py` implementing `CinemaScraper`.
+2. **YAML config** (for simple sites): Create `cinemas/<name>.yaml` with CSS selectors and URL patterns.
+   See `cinemas/_template.yaml.example` for the schema.
+
+Available cinemas are auto-discovered at startup.
 python -m cinemabot watch "The Odyssey" --interval 60
 python -m cinemabot tickets "Clayface" --interval 30 --notify-initial
 python -m cinemabot config

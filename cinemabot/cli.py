@@ -131,17 +131,13 @@ def showtimes(
         close_all_drivers()
 
 
-@app.command()
-def cinemas(cinema: str = typer.Option("vox", "--cinema", "-c", help="Cinema: vox or scene"), verbose: bool = False):
-    """List cinemas (derived)."""
+@app.command(name="cinemas")
+def list_cinemas(verbose: bool = False):
+    """List available cinema adapters."""
     setup_logging(verbose)
-    scraper = _make_scraper(cinema)
-    try:
-        cs = scraper.cinemas()
-        for c in cs:
-            console.print(c)
-    finally:
-        close_all_drivers()
+    from .cinemas import available_cinemas, cinema_name
+    for c in available_cinemas():
+        console.print(f"{c}  -  {cinema_name(c)}")
 
 
 @app.command()
