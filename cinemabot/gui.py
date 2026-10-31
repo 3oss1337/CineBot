@@ -11,7 +11,7 @@ from .browser import close_all_drivers
 from .config import get_settings
 from .models import Movie
 from .notifier import Notifier
-from .scraper import VoxScraper
+# from .scraper import VoxScraper  # now using cinemas.get_scraper
 from .utils import safe_movie_query
 
 
@@ -35,6 +35,14 @@ class CineBotGUI(ctk.CTk):
         self._build_ui()
 
     def _build_ui(self):
+        # Cinema selector at top
+        top = ctk.CTkFrame(self)
+        top.pack(fill="x", padx=10, pady=(10, 0))
+        ctk.CTkLabel(top, text="Cinema:").pack(side="left", padx=5)
+        self.cinema_var = ctk.StringVar(value="vox")
+        self.cinema_combo = ctk.CTkComboBox(top, values=["vox", "scene"], variable=self.cinema_var, width=120)
+        self.cinema_combo.pack(side="left", padx=5)
+
         self.tabview = ctk.CTkTabview(self)
         self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -65,7 +73,8 @@ class CineBotGUI(ctk.CTk):
         def work():
             try:
                 
-                scraper = VoxScraper()
+                from .cinemas import get_scraper
+                scraper = get_scraper(self.cinema_var.get())
                 try:
                     movies = scraper.now_showing()
                 finally:
@@ -92,7 +101,8 @@ class CineBotGUI(ctk.CTk):
         def work():
             try:
                 
-                scraper = VoxScraper()
+                from .cinemas import get_scraper
+                scraper = get_scraper(self.cinema_var.get())
                 try:
                     movies = scraper.coming_soon()
                 finally:
@@ -139,7 +149,8 @@ class CineBotGUI(ctk.CTk):
 
         def work():
             try:
-                scraper = VoxScraper()
+                from .cinemas import get_scraper
+                scraper = get_scraper(self.cinema_var.get())
                 try:
                     m = scraper.find_movie(safe_movie_query(movie))
                     if m is None:
@@ -176,7 +187,8 @@ class CineBotGUI(ctk.CTk):
             try:
                 
                 from .exporter import export_csv, export_excel
-                scraper = VoxScraper()
+                from .cinemas import get_scraper
+                scraper = get_scraper(self.cinema_var.get())
                 try:
                     m = scraper.find_movie(safe_movie_query(movie))
                     if m is None:
@@ -232,7 +244,8 @@ class CineBotGUI(ctk.CTk):
         def work():
             try:
                 
-                scraper = VoxScraper()
+                from .cinemas import get_scraper
+                scraper = get_scraper(self.cinema_var.get())
                 notifier = self.notifier
                 m = scraper.find_movie(safe_movie_query(movie))
                 if m is None:

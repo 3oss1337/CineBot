@@ -46,6 +46,11 @@ python -m cinemabot showtimes "Clayface"
 python -m cinemabot showtimes "Clayface" --all-dates
 python -m cinemabot showtimes "Clayface" --seats --export showtimes.xlsx
 python -m cinemabot showtimes "Clayface" --seats --favorite-rows 5,6,7
+
+# Multi-cinema support
+python -m cinemabot movies --cinema scene
+python -m cinemabot showtimes "Clayface" --cinema scene
+python -m cinemabot movies --cinema vox
 python -m cinemabot watch "The Odyssey" --interval 60
 python -m cinemabot tickets "Clayface" --interval 30 --notify-initial
 python -m cinemabot config

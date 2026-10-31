@@ -36,11 +36,12 @@ def close_session() -> None:
 class HttpFetcher:
     """Fast fetcher using curl_cffi. ~10-50x faster than headless Chrome."""
 
-    def __init__(self):
+    def __init__(self, allowed_host: str = None):
         self.settings = get_settings()
+        self.allowed_host = allowed_host or self.settings.allowed_host
 
     def fetch(self, url: str) -> str:
-        validate_url(url, self.settings.allowed_host)
+        validate_url(url, self.allowed_host)
         sess = get_session()
         log.debug("Fetching (http) %s", url)
         r = sess.get(url, timeout=20, allow_redirects=True)

@@ -9,22 +9,23 @@ from rich.console import Console
 from rich.table import Table
 
 from .browser import close_all_drivers, close_driver
+from .cinemas import available_cinemas, cinema_name, get_scraper
 from .config import get_settings, reset_settings
 from .models import Movie
 from .notifier import Notifier
 from .exporter import export_csv, export_excel
-from .scraper import VoxScraper
+# from .scraper import VoxScraper  # now using cinemas.get_scraper
 from .utils import setup_logging, safe_movie_query
 from .gui import main as gui_main
 from .telegram_bot import TelegramBotRunner
 from .watcher import watch_booking, watch_tickets
 
-app = typer.Typer(help="CineBot - VOX Cinemas Egypt ticket watcher", no_args_is_help=True)
+app = typer.Typer(help="CineBot - Multi-cinema ticket watcher (VOX + Scene)", no_args_is_help=True)
 console = Console()
 
 
-def _make_scraper() -> VoxScraper:
-    return VoxScraper()
+def _make_scraper(cinema: str = "vox"):
+    return get_scraper(cinema)
 
 
 def _print_movies(movies, title: str) -> None:
@@ -41,37 +42,37 @@ def _print_movies(movies, title: str) -> None:
 
 
 @app.command()
-def movies(verbose: bool = False):
+def movies(cinema: str = typer.Option("vox", "--cinema", "-c", help="Cinema: vox or scene"), verbose: bool = False):
     """List now-showing movies."""
     setup_logging(verbose)
-    scraper = _make_scraper()
+    scraper = _make_scraper(cinema)
     try:
         ms = scraper.now_showing()
-        _print_movies(ms, "Now Showing - VOX Cinemas Egypt")
+        _print_movies(ms, f"Now Showing - {cinema_name(cinema)}")
     finally:
         close_all_drivers()
 
 
 @app.command()
-def coming(verbose: bool = False):
+def coming(cinema: str = typer.Option("vox", "--cinema", "-c", help="Cinema: vox or scene"), verbose: bool = False):
     """List coming-soon movies."""
     setup_logging(verbose)
-    scraper = _make_scraper()
+    scraper = _make_scraper(cinema)
     try:
         ms = scraper.coming_soon()
-        _print_movies(ms, "Coming Soon - VOX Cinemas Egypt")
+        _print_movies(ms, f"Coming Soon - {cinema_name(cinema)}")
     finally:
         close_all_drivers()
 
 
 @app.command()
-def search(query: str, verbose: bool = False):
+def search(query: str, cinema: str = typer.Option("vox", "--cinema", "-c", help="Cinema: vox or scene"), verbose: bool = False):
     """Search movies by name."""
     setup_logging(verbose)
-    scraper = _make_scraper()
+    scraper = _make_scraper(cinema)
     try:
         ms = scraper.search_movies(safe_movie_query(query))
-        _print_movies(ms, f"Search: {query}")
+        _print_movies(ms, f"Search: {query} ({cinema_name(cinema)})")
     finally:
         close_all_drivers()
 
@@ -79,6 +80,7 @@ def search(query: str, verbose: bool = False):
 @app.command()
 def showtimes(
     movie: str,
+    cinema: str = typer.Option("vox", "--cinema", "-c", help="Cinema: vox or scene"),
     all_dates: bool = typer.Option(False, "--all-dates", "-a", help="Fetch showtimes for all available dates"),
     seats: bool = typer.Option(False, "--seats", "-s", help="Fetch seat availability (slow)"),
     favorite_rows: Optional[str] = typer.Option(None, "--favorite-rows", "-f", help="Comma-separated favorite rows (e.g. 5,6,7)"),
@@ -87,7 +89,8 @@ def showtimes(
 ):
     """Show showtimes for a movie."""
     setup_logging(verbose)
-    scraper = _make_scraper()
+    settings = get_settings()
+    scraper = _make_scraper(cinema)
     notifier = Notifier()
     try:
         m = scraper.find_movie(safe_movie_query(movie))
@@ -129,10 +132,10 @@ def showtimes(
 
 
 @app.command()
-def cinemas(verbose: bool = False):
+def cinemas(cinema: str = typer.Option("vox", "--cinema", "-c", help="Cinema: vox or scene"), verbose: bool = False):
     """List cinemas (derived)."""
     setup_logging(verbose)
-    scraper = _make_scraper()
+    scraper = _make_scraper(cinema)
     try:
         cs = scraper.cinemas()
         for c in cs:
@@ -144,6 +147,7 @@ def cinemas(verbose: bool = False):
 @app.command()
 def watch(
     movie: str,
+    cinema: str = typer.Option("vox", "--cinema", "-c", help="Cinema: vox or scene"),
     interval: Optional[int] = typer.Option(None, "--interval", "-i", help="Poll interval seconds"),
     timeout: Optional[int] = typer.Option(None, "--timeout", "-t", help="Max seconds (0=forever)"),
     no_email: bool = typer.Option(False, "--no-email", help="Disable email notifications"),
@@ -158,7 +162,7 @@ def watch(
     if timeout is None:
         timeout = settings.watch_timeout
 
-    scraper = _make_scraper()
+    scraper = _make_scraper(cinema)
     notifier = Notifier()
     try:
         if once:
@@ -192,6 +196,7 @@ def watch(
 @app.command()
 def tickets(
     movie: str,
+    cinema: str = typer.Option("vox", "--cinema", "-c", help="Cinema: vox or scene"),
     interval: Optional[int] = typer.Option(None, "--interval", "-i", help="Poll interval seconds"),
     timeout: Optional[int] = typer.Option(None, "--timeout", "-t", help="Max seconds (0=forever)"),
     no_email: bool = typer.Option(False, "--no-email", help="Disable email notifications"),
@@ -207,7 +212,7 @@ def tickets(
     if timeout is None:
         timeout = settings.watch_timeout
 
-    scraper = _make_scraper()
+    scraper = _make_scraper(cinema)
     notifier = Notifier()
     try:
         if once:

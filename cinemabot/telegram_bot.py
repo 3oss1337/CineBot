@@ -12,15 +12,17 @@ import httpx
 from .config import get_settings
 from .models import Movie
 from .notifier import Notifier
-from .scraper import VoxScraper
+from .cinemas import get_scraper
 from .utils import safe_movie_query
 from .watcher import watch_booking, watch_tickets
 
 log = logging.getLogger(__name__)
 
 HELP_TEXT = (
-    "🎬 <b>CineBot</b> — VOX Cinemas Egypt\n\n"
+    "🎬 <b>CineBot</b> — Multi-cinema ticket watcher\n\n"
+    "Cinemas: vox, scene\n"
     "Commands:\n"
+    "/cinema vox|scene — switch cinema (default: vox)\n"
     "/movies — now showing\n"
     "/coming — coming soon\n"
     "/search name — find a movie\n"
@@ -42,6 +44,7 @@ class TelegramBotRunner:
         self.offset = 0
         self._stop = threading.Event()
         self._active: dict = {}  # chat_id -> list of threads
+        self._chat_cinema: dict = {}  # chat_id -> cinema name
         self._lock = threading.Lock()
 
     def _api(self, method: str, **kwargs) -> dict:
@@ -73,6 +76,13 @@ class TelegramBotRunner:
         if cmd in ("/start", "/help"):
             self.reply(chat_id, HELP_TEXT)
             return
+        if cmd == "/cinema":
+            if arg.lower() in ("vox", "scene"):
+                self._chat_cinema[chat_id] = arg.lower()
+                self.reply(chat_id, f"Switched to {arg.lower()}.")
+            else:
+                self.reply(chat_id, "Usage: /cinema vox  or  /cinema scene")
+            return
         if cmd == "/stop":
             self._cancel(chat_id)
             self.reply(chat_id, "Cancelled active watches.")
@@ -98,7 +108,7 @@ class TelegramBotRunner:
         self.reply(chat_id, "Fetching now showing…")
         try:
             from .browser import close_all_drivers
-            scraper = VoxScraper()
+            scraper = get_scraper(self._chat_cinema.get(chat_id, "vox"))
             try:
                 movies = scraper.now_showing()
             finally:
@@ -120,7 +130,7 @@ class TelegramBotRunner:
         self.reply(chat_id, "Fetching coming soon…")
         try:
             from .browser import close_all_drivers
-            scraper = VoxScraper()
+            scraper = get_scraper(self._chat_cinema.get(chat_id, "vox"))
             try:
                 movies = scraper.coming_soon()
             finally:
@@ -140,7 +150,7 @@ class TelegramBotRunner:
 
     def _cmd_movie(self, chat_id, arg: str, cmd: str) -> None:
         from .browser import close_all_drivers
-        scraper = VoxScraper()
+        scraper = get_scraper(self._chat_cinema.get(chat_id, "vox"))
         notifier = Notifier()
         try:
             movie = scraper.find_movie(safe_movie_query(arg))
