@@ -26,37 +26,6 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-No browser required. (Selenium is optional, only for legacy fallback.)
-
-## Configure
-
-```bash
-copy .env.example .env
-# Edit .env with your credentials
-```
-
-### Telegram (recommended, free, instant)
-```
-CINEBOT_TELEGRAM_BOT_TOKEN=your_bot_token
-CINEBOT_TELEGRAM_CHAT_ID=your_chat_id
-```
-Create a bot via @BotFather on Telegram. Send any message to it, then visit `https://api.telegram.org/bot<TOKEN>/getUpdates` to find your chat_id.
-
-### Email (optional)
-```
-# SendGrid (recommended)
-CINEBOT_SENDGRID_API_KEY=your_key
-CINEBOT_SENDGRID_FROM=your_verified_sender@example.com
-CINEBOT_EMAIL_TO=your_email@gmail.com
-
-# Or SMTP
-CINEBOT_SMTP_HOST=smtp.gmail.com
-CINEBOT_SMTP_PORT=587
-CINEBOT_SMTP_USER=your_email@gmail.com
-CINEBOT_SMTP_PASSWORD=your_app_password
-CINEBOT_EMAIL_TO=your_email@gmail.com
-```
-
 ### Favorite rows (optional)
 ```
 CINEBOT_FAVORITE_ROWS=5,6,7
